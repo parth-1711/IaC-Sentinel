@@ -1,0 +1,111 @@
+name: "IaC Sentinel Compliance Agent"
+description: "Evaluates Terraform plans against custom OPA policies and enriches violations with AI explanations & remediation patches."
+author: "IaC Sentinel Team"
+
+inputs:
+  plan_file:
+    description: "Path to the exported Terraform plan JSON file (from `terraform show -json`)"
+    required: true
+  policies_dir:
+    description: "Path to directory containing custom OPA Rego policies"
+    required: false
+    default: "policies"
+  gemini_api_key:
+    description: "Google Gemini API Key for AI explanation and remediation patch generation"
+    required: false
+    default: ""
+  fail_on_high:
+    description: "Fail the CI step if high-severity violations are detected (true/false)"
+    required: false
+    default: "true"
+  github_token:
+    description: "GitHub token for commenting on PRs and proposing remediation branches"
+    required: false
+    default: ${{ github.token }}
+  comment_on_pr:
+    description: "Post compliance report and remediation diff directly as a PR comment"
+    required: false
+    default: "true"
+
+outputs:
+  compliance_score:
+    description: "Overall compliance health score (0-100)"
+    value: ${{ steps.scan.outputs.compliance_score }}
+  violations_count:
+    description: "Total number of policy violations detected"
+    value: ${{ steps.scan.outputs.violations_count }}
+  passed:
+    description: "Whether the compliance scan passed"
+    value: ${{ steps.scan.outputs.passed }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+        cache: "pip"
+
+    - name: Set up OPA
+      uses: open-policy-agent/setup-opa@v2
+      with:
+        version: "latest"
+
+    - name: Install Python Dependencies
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r ${{ github.action_path }}/../requirements.txt
+
+    - name: Run IaC Sentinel Compliance Scan
+      id: scan
+      shell: bash
+      env:
+        GEMINI_API_KEY: ${{ inputs.gemini_api_key }}
+      run: |
+        FAIL_FLAG=""
+        if [ "${{ inputs.fail_on_high }}" = "false" ]; then
+          FAIL_FLAG="--no-fail-on-high"
+        fi
+
+        python ${{ github.action_path }}/../main.py scan \
+          --plan "${{ inputs.plan_file }}" \
+          --policies "${{ inputs.policies_dir }}" \
+          --explain \
+          --remediate \
+          --output-comment pr_comment.md \
+          --output-json scan_result.json \
+          $FAIL_FLAG
+
+    - name: Post or Update PR Comment
+      if: ${{ inputs.comment_on_pr == 'true' && github.event_name == 'pull_request' }}
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ inputs.github_token }}
+        script: |
+          const fs = require('fs');
+          if (fs.existsSync('pr_comment.md')) {
+            const body = fs.readFileSync('pr_comment.md', 'utf8');
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+            });
+            const botComment = comments.find(c => c.body.includes('IaC Sentinel — Compliance Review'));
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body: body
+              });
+            }
+          }

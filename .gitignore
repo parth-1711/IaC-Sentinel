@@ -1,0 +1,32 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IaC Sentinel Runtime & Storage
+iac_sentinel.db
+violations_log.json
+dashboard/public/violations_log.json
+.env
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# Node / Dashboard
+node_modules/
+dashboard/.next/
+dashboard/out/
+dashboard/dist/
+
+IaC_Sentinel_project_spec.md
+
+# Logs
+*.log

@@ -1,0 +1,119 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.7.0",
+  "planned_values": {
+    "root_module": {
+      "resources": []
+    }
+  },
+  "resource_changes": [
+    {
+      "address": "aws_security_group_rule.ingress_ssh",
+      "module_address": "",
+      "mode": "managed",
+      "type": "aws_security_group_rule",
+      "name": "ingress_ssh",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {
+          "type": "ingress",
+          "from_port": 22,
+          "to_port": 22,
+          "protocol": "tcp",
+          "cidr_blocks": ["0.0.0.0/0"],
+          "description": "Allow SSH from anywhere"
+        }
+      }
+    },
+    {
+      "address": "aws_s3_bucket.customer_uploads",
+      "module_address": "",
+      "mode": "managed",
+      "type": "aws_s3_bucket",
+      "name": "customer_uploads",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {
+          "bucket": "Customer_Uploads_Bucket",
+          "acl": "public-read",
+          "tags": {
+            "Environment": "dev"
+          }
+        }
+      }
+    },
+    {
+      "address": "aws_ebs_volume.database_storage",
+      "module_address": "",
+      "mode": "managed",
+      "type": "aws_ebs_volume",
+      "name": "database_storage",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {
+          "availability_zone": "us-east-1a",
+          "size": 250,
+          "encrypted": false,
+          "tags": {
+            "Environment": "production",
+            "Owner": "data-platform",
+            "Project": "finance-db"
+          }
+        }
+      }
+    },
+    {
+      "address": "aws_instance.ml_trainer_dev",
+      "module_address": "",
+      "mode": "managed",
+      "type": "aws_instance",
+      "name": "ml_trainer_dev",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {
+          "ami": "ami-0c55b159cbfafe1f0",
+          "instance_type": "c5.4xlarge",
+          "tags": {
+            "Environment": "dev",
+            "Owner": "ml-research",
+            "Project": "recommendation"
+          }
+        }
+      }
+    },
+    {
+      "address": "aws_security_group.app_sg",
+      "module_address": "",
+      "mode": "managed",
+      "type": "aws_security_group",
+      "name": "app_sg",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {
+          "name": "App Security Group",
+          "description": "App cluster security group",
+          "ingress": [
+            {
+              "description": "Custom management port",
+              "from_port": 8080,
+              "to_port": 8080,
+              "protocol": "tcp",
+              "cidr_blocks": ["0.0.0.0/0"]
+            }
+          ],
+          "tags": {}
+        }
+      }
+    }
+  ]
+}

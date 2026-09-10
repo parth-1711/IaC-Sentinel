@@ -1,0 +1,1 @@
+"""IaC Sentinel Scanner package."""

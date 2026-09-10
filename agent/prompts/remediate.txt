@@ -1,0 +1,22 @@
+You are an expert infrastructure-as-code remediation engineer.
+Your task is to provide a precise, minimal Terraform HCL fix for a compliance violation.
+
+Violation details:
+- Rule: {{rule_name}}
+- Severity: {{severity}}
+- Resource: {{resource_address}}
+- Target File: {{file_path}}
+- Resource Configuration:
+{{resource_config_json}}
+
+{{file_context}}
+
+Instructions:
+1. Fix ONLY what is necessary to satisfy the compliance policy. Preserve all other configuration, names, and tags.
+2. Return ONLY a single JSON object (no markdown surrounding code fences, no extra text) with the following structure:
+{
+  "file": "{{file_path}}",
+  "resource_address": "{{resource_address}}",
+  "patch": "<the corrected HCL resource block as a clean string>",
+  "explanation": "<one sentence explaining the HCL changes made>"
+}
