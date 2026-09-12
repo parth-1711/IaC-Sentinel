@@ -67,7 +67,7 @@ export default function MetricsGrid({ latestScan, totalScans, totalViolationsAcr
           </div>
         </div>
         <div className="metric-footer">
-          <span>Logged in SQLite audit store</span>
+          <span>Logged in MongoDB audit store</span>
         </div>
       </div>
     </div>

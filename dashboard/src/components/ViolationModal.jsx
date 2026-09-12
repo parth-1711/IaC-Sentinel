@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+'use client';
+
+import { useState } from 'react';
 
 export default function ViolationModal({ violation, onClose }) {
   const [copied, setCopied] = useState(false);

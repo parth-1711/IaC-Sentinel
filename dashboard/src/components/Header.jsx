@@ -1,6 +1,8 @@
-import React from 'react';
+'use client';
 
-export default function Header({ lastUpdated, totalScans, onRefresh }) {
+import { signOut } from 'next-auth/react';
+
+export default function Header({ lastUpdated, totalScans, onRefresh, user }) {
   return (
     <header className="app-header">
       <div className="brand">
@@ -21,11 +23,11 @@ export default function Header({ lastUpdated, totalScans, onRefresh }) {
           <span>Engine Active (OPA v1.20 + Gemini)</span>
         </div>
 
-        <button 
+        <button
           onClick={onRefresh}
           className="filter-btn"
-          style={{ 
-            background: 'var(--bg-surface-elevated)', 
+          style={{
+            background: 'var(--bg-surface-elevated)',
             border: '1px solid var(--border-subtle)',
             display: 'flex',
             alignItems: 'center',
@@ -38,6 +40,20 @@ export default function Header({ lastUpdated, totalScans, onRefresh }) {
           </svg>
           Refresh Data
         </button>
+
+        {user && (
+          <div className="user-badge">
+            {user.image && <img src={user.image} alt={user.name || 'GitHub avatar'} />}
+            <span>{user.name || user.email}</span>
+            <button
+              onClick={() => signOut({ callbackUrl: '/login' })}
+              className="filter-btn"
+              style={{ background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', padding: '0.4rem 0.75rem' }}
+            >
+              Sign out
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );

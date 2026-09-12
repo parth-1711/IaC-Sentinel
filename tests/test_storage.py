@@ -1,13 +1,14 @@
-"""Unit tests for SQLite audit logger and JSON export."""
+"""Unit tests for MongoDB audit logger and JSON export."""
 
 from __future__ import annotations
 from pathlib import Path
+import mongomock
 from scanner.parse_violations import Violation, ScanSummary, ScanResult
-from scanner.storage import init_db, log_scan, get_all_scans, seed_demo_history, export_to_json
+from scanner.storage import log_scan, get_all_scans, seed_demo_history
 
 
-def test_sqlite_logging_and_export(tmp_path):
-    db_path = str(tmp_path / "test_sentinel.db")
+def test_mongo_logging_and_export(tmp_path):
+    client = mongomock.MongoClient()
     json_path = str(tmp_path / "test_export.json")
 
     v = Violation(
@@ -30,13 +31,14 @@ def test_sqlite_logging_and_export(tmp_path):
         repo="my-org/my-infra",
         pr_number=10,
         commit_sha="abcdef1",
-        db_path=db_path,
+        db_name="test_sentinel",
         export_json_path=json_path,
+        client=client,
     )
 
     assert scan_id == 1
 
-    scans = get_all_scans(db_path=db_path)
+    scans = get_all_scans(db_name="test_sentinel", client=client)
     assert len(scans) == 1
     assert scans[0]["repo"] == "my-org/my-infra"
     assert scans[0]["pr_number"] == 10
@@ -53,11 +55,11 @@ def test_sqlite_logging_and_export(tmp_path):
 
 
 def test_seed_demo_history(tmp_path):
-    db_path = str(tmp_path / "demo.db")
+    client = mongomock.MongoClient()
     json_path = str(tmp_path / "demo.json")
 
-    seed_demo_history(db_path=db_path, export_json_path=json_path)
+    seed_demo_history(db_name="demo_sentinel", export_json_path=json_path, client=client)
 
-    scans = get_all_scans(db_path=db_path)
+    scans = get_all_scans(db_name="demo_sentinel", client=client)
     assert len(scans) == 4
     assert Path(json_path).exists()

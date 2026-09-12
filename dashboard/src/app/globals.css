@@ -410,3 +410,63 @@ code.inline-code {
 .modal-close:hover {
   color: var(--text-primary);
 }
+
+/* Auth */
+.auth-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.auth-card {
+  max-width: 420px;
+  width: 100%;
+  padding: 2.5rem 2rem;
+  text-align: center;
+}
+
+.auth-card .brand-icon {
+  margin: 0 auto 1.25rem;
+}
+
+.github-signin-btn {
+  margin-top: 1.75rem;
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  background: var(--text-primary);
+  color: var(--bg-main);
+  font-weight: 600;
+  font-size: 0.9rem;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.github-signin-btn:hover {
+  opacity: 0.88;
+}
+
+.user-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.user-badge img {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--border-subtle);
+}
+
+.user-badge span {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}

@@ -1,12 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import Header from './components/Header';
-import MetricsGrid from './components/MetricsGrid';
-import TrendChart from './components/TrendChart';
-import CategoryBreakdown from './components/CategoryBreakdown';
-import ViolationTable from './components/ViolationTable';
-import ViolationModal from './components/ViolationModal';
+'use client';
 
-export default function App() {
+import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
+import Header from '../components/Header';
+import MetricsGrid from '../components/MetricsGrid';
+import TrendChart from '../components/TrendChart';
+import CategoryBreakdown from '../components/CategoryBreakdown';
+import ViolationTable from '../components/ViolationTable';
+import ViolationModal from '../components/ViolationModal';
+
+export default function DashboardPage() {
+  const { data: session, status } = useSession();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -16,9 +20,13 @@ export default function App() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/violations_log.json?t=' + Date.now());
+      const res = await fetch('/api/scans', { cache: 'no-store' });
       if (!res.ok) {
-        throw new Error('Failed to load compliance audit logs');
+        throw new Error(
+          res.status === 401
+            ? 'Session expired — please sign in again.'
+            : 'Failed to load compliance audit logs'
+        );
       }
       const json = await res.json();
       setData(json);
@@ -35,8 +43,27 @@ export default function App() {
   };
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (status === 'authenticated') {
+      loadData();
+    }
+  }, [status]);
+
+  if (status === 'loading') {
+    return (
+      <div className="auth-screen">
+        <div style={{ color: 'var(--text-muted)', textAlign: 'center' }}>
+          <div style={{ display: 'inline-block', width: '28px', height: '28px', border: '3px solid var(--accent-cyan)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+          <p style={{ marginTop: '1rem' }}>Checking session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Middleware already redirects unauthenticated requests to /login, this is
+  // just a safety net against a stale client-rendered tree.
+  if (status !== 'authenticated') {
+    return null;
+  }
 
   const scans = data?.scans || [];
   const currentScan = scans.find(s => s.id === selectedScanId) || scans[0];
@@ -50,6 +77,7 @@ export default function App() {
         lastUpdated={data?.last_updated}
         totalScans={scans.length}
         onRefresh={loadData}
+        user={session?.user}
       />
 
       <main className="dashboard-container">
@@ -62,6 +90,10 @@ export default function App() {
           <div className="glass-panel" style={{ padding: '2rem', borderColor: 'var(--accent-rose)' }}>
             <h3 style={{ color: 'var(--accent-rose)', marginBottom: '0.5rem' }}>Failed to Load Telemetry</h3>
             <p style={{ color: 'var(--text-secondary)' }}>{error}</p>
+          </div>
+        ) : scans.length === 0 ? (
+          <div className="glass-panel" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+            <p>No compliance scans found for repositories you have access to.</p>
           </div>
         ) : (
           <>

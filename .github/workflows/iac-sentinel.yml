@@ -60,3 +60,4 @@ jobs:
           fail_on_high: ${{ steps.override-check.outputs.FAIL_ON_HIGH }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           comment_on_pr: "true"
+          mongo_uri: ${{ secrets.MONGO_URI }}

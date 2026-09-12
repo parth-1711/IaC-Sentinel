@@ -11,8 +11,9 @@ htmlcov/
 # IaC Sentinel Runtime & Storage
 iac_sentinel.db
 violations_log.json
-dashboard/public/violations_log.json
+data/violations_log.json
 .env
+dashboard/.env.local
 
 # Terraform
 *.tfstate

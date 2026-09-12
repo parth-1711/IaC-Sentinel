@@ -12,7 +12,7 @@ IaC Sentinel evaluates Terraform execution plans against custom Open Policy Agen
 For every flagged violation, an LLM compliance agent generates:
 1. A **plain-language risk explanation** explaining the concrete attacker threat or cost impact to developers.
 2. A **structured HCL patch & proposed diff** that can be reviewed, merged, or automatically proposed as a secondary PR without ever touching production branches unreviewed.
-3. A **compliance audit trail** logged to SQLite and visualizable via an interactive web dashboard.
+3. A **compliance audit trail** logged to MongoDB and visualizable via an interactive web dashboard.
 
 ---
 
@@ -47,7 +47,7 @@ LLM Compliance Agent: Gemini (`agent/explain.py`, `agent/remediate.py`)
          │
     ┌────┴───────────────────────────┐
     ▼                                ▼
-GitHub Action PR Comment      SQLite / JSON Audit Log (`iac_sentinel.db`)
+GitHub Action PR Comment      MongoDB / JSON Audit Log
 (+ Optional Remediation PR)          │
                                      ▼
                               Compliance Dashboard (`dashboard/`)
@@ -163,19 +163,22 @@ jobs:
 
 ## 📊 Compliance Dashboard
 
-IaC Sentinel includes a modern telemetry portal in `dashboard/` reading from SQLite and JSON audit histories.
+IaC Sentinel includes a Next.js telemetry portal in `dashboard/` that reads scan history live from MongoDB, gated behind **GitHub OAuth sign-in**. Each signed-in user only sees scans for repositories they actually have access to on GitHub — the API route calls GitHub on their behalf to check.
 
-```bash
-cd dashboard
-npm install
-npm run dev
-```
+**Setup:**
+1. Create a GitHub OAuth App at [github.com/settings/developers](https://github.com/settings/developers) with callback URL `http://localhost:3000/api/auth/callback/github`.
+2. `cd dashboard && cp .env.local.example .env.local` and fill in `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `NEXTAUTH_SECRET` (`openssl rand -base64 32`), and your `MONGO_URI`.
+3. `npm install && npm run dev`, then visit `http://localhost:3000` and sign in with GitHub.
 
-Visit `http://localhost:3000` to view:
+> **Scope note:** the OAuth app requests the `repo` scope so it can list private repos the signed-in user can access — GitHub's classic OAuth scopes don't offer a narrower "read-only repo list" permission. A GitHub App with fine-grained read-only permissions would be a tighter alternative worth adopting later.
+
+Once signed in:
 - **Compliance Health Scorecard**: Overall score (0-100), high blockers, and scan trends.
 - **Historical Telemetry Graph**: Visual timeline of compliance improvements across PRs.
 - **Pillar Distribution**: Breakdown across Security, Cost, and Governance.
 - **Violation Inspector Modal**: Searchable findings with AI threat narrative and one-click copyable HCL patches.
+
+To populate real data, set the `MONGO_URI` secret on the repo running the GitHub Action (see `github-action/action.yml`'s `mongo_uri` input) — scans are then logged with the PR's `owner/repo` name, matching what the dashboard checks against GitHub.
 
 ---
 
@@ -190,7 +193,7 @@ iac-sentinel/
 ├── scanner/                          # Evaluation and normalization engine
 │   ├── run_opa.py                    # Evaluates plan JSON against OPA data tree
 │   ├── parse_violations.py           # Normalizes findings into unified schema
-│   └── storage.py                    # SQLite persistence & JSON export
+│   └── storage.py                    # MongoDB persistence & JSON export
 ├── agent/                            # AI Compliance Agent
 │   ├── explain.py                    # LLM risk explanation generator
 │   ├── remediate.py                  # Structured HCL patch generator & diffing
@@ -199,16 +202,17 @@ iac-sentinel/
 │   └── prompts/                      # Strict system prompts (explain & remediate)
 ├── github-action/                    # Reusable GitHub Action
 │   └── action.yml                    # CI composite entrypoint
-├── dashboard/                        # Modern Compliance Web Portal
-│   ├── src/                          # React + Vite dashboard components
-│   └── public/violations_log.json    # Exported audit telemetry
+├── dashboard/                        # Next.js Compliance Web Portal
+│   ├── src/app/                      # Pages, API routes (auth, scans)
+│   ├── src/components/               # Dashboard UI components
+│   └── src/lib/                      # NextAuth config, MongoDB & GitHub API clients
 ├── tests/                            # Test suites & fixtures
 │   ├── policies/                     # 27 Rego unit test cases (*_test.rego)
 │   ├── fixtures/                     # Compliant and violating plan JSONs
 │   ├── test_scanner.py               # Scanner unit tests
 │   ├── test_agent.py                 # Agent explanation tests
 │   ├── test_remediate.py             # Patch diff tests
-│   └── test_storage.py               # SQLite logging tests
+│   └── test_storage.py               # MongoDB logging tests
 ├── main.py                           # Unified CLI executable
 ├── requirements.txt                  # Python dependencies
 └── README.md

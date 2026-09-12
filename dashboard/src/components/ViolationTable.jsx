@@ -1,4 +1,6 @@
-import React, { useState, useMemo } from 'react';
+'use client';
+
+import { useState, useMemo } from 'react';
 
 export default function ViolationTable({ violations = [], onSelectViolation }) {
   const [search, setSearch] = useState('');
