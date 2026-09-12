@@ -5,7 +5,6 @@
 [![Python Tests](https://img.shields.io/badge/Python%20Tests-12%2F12%20Passing-blue)](tests/)
 [![Engine](https://img.shields.io/badge/OPA-v1.20%20(Rego%20v1)-purple)](policies/)
 [![AI](https://img.shields.io/badge/AI-Google%20Gemini-orange)](agent/)
-[![License](https://img.shields.io/badge/License-MIT-slate)](LICENSE)
 
 IaC Sentinel evaluates Terraform execution plans against custom Open Policy Agent (OPA) compliance policies covering **Security**, **Cost**, and **Governance**. 
 
@@ -219,7 +218,3 @@ iac-sentinel/
 ```
 
 ---
-
-## 🛡️ License
-
-MIT License. Crafted for resilient, auditable cloud infrastructure.
