@@ -76,11 +76,6 @@ runs:
       env:
         GEMINI_API_KEY: ${{ inputs.gemini_api_key }}
       run: |
-        FAIL_FLAG=""
-        if [ "${{ inputs.fail_on_high }}" = "false" ]; then
-          FAIL_FLAG="--no-fail-on-high"
-        fi
-
         # `github.action_path` is only meaningful here, inside the action's
         # own step — it can't be resolved by a calling workflow, so the
         # fallback to this action's bundled policies has to happen in this
@@ -90,26 +85,41 @@ runs:
           POLICIES_DIR="${{ github.action_path }}/../policies"
         fi
 
+        # Built as an array (not a string later expanded unquoted) so
+        # values like a MongoDB URI or repo name pass through as single
+        # argv entries, quotes and all, with no re-splitting or literal
+        # quote-character leakage.
+        ARGS=(
+          --plan "${{ inputs.plan_file }}"
+          --policies "$POLICIES_DIR"
+          --explain
+          --remediate
+          --output-comment pr_comment.md
+          --output-json scan_result.json
+        )
+
+        if [ "${{ inputs.fail_on_high }}" = "false" ]; then
+          ARGS+=(--no-fail-on-high)
+        fi
+
         # Only persist to MongoDB when a connection URI was supplied — keeps
         # the action working with zero config for anyone who hasn't set up
         # the dashboard's audit log store.
-        LOG_FLAGS="--log-db \"\""
         if [ -n "${{ inputs.mongo_uri }}" ]; then
-          LOG_FLAGS="--mongo-uri \"${{ inputs.mongo_uri }}\" --log-db \"${{ inputs.mongo_db_name }}\" --repo \"${{ github.repository }}\" --commit \"${{ github.sha }}\""
+          ARGS+=(
+            --mongo-uri "${{ inputs.mongo_uri }}"
+            --log-db "${{ inputs.mongo_db_name }}"
+            --repo "${{ github.repository }}"
+            --commit "${{ github.sha }}"
+          )
           if [ -n "${{ github.event.pull_request.number }}" ]; then
-            LOG_FLAGS="$LOG_FLAGS --pr ${{ github.event.pull_request.number }}"
+            ARGS+=(--pr "${{ github.event.pull_request.number }}")
           fi
+        else
+          ARGS+=(--log-db "")
         fi
 
-        python ${{ github.action_path }}/../main.py scan \
-          --plan "${{ inputs.plan_file }}" \
-          --policies "$POLICIES_DIR" \
-          --explain \
-          --remediate \
-          --output-comment pr_comment.md \
-          --output-json scan_result.json \
-          $FAIL_FLAG \
-          $LOG_FLAGS
+        python "${{ github.action_path }}/../main.py" scan "${ARGS[@]}"
 
     - name: Post or Update PR Comment
       if: ${{ inputs.comment_on_pr == 'true' && github.event_name == 'pull_request' }}
