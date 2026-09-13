@@ -7,9 +7,9 @@ inputs:
     description: "Path to the exported Terraform plan JSON file (from `terraform show -json`)"
     required: true
   policies_dir:
-    description: "Path to directory containing custom OPA Rego policies"
+    description: "Path (relative to the calling repo's checkout) to a directory of custom OPA Rego policies. Leave empty to use this action's own bundled policies/ folder instead — the right default for consumer repos that don't define their own."
     required: false
-    default: "policies"
+    default: ""
   gemini_api_key:
     description: "Google Gemini API Key for AI explanation and remediation patch generation"
     required: false
@@ -81,6 +81,15 @@ runs:
           FAIL_FLAG="--no-fail-on-high"
         fi
 
+        # `github.action_path` is only meaningful here, inside the action's
+        # own step — it can't be resolved by a calling workflow, so the
+        # fallback to this action's bundled policies has to happen in this
+        # script rather than via the input's default value.
+        POLICIES_DIR="${{ inputs.policies_dir }}"
+        if [ -z "$POLICIES_DIR" ]; then
+          POLICIES_DIR="${{ github.action_path }}/../policies"
+        fi
+
         # Only persist to MongoDB when a connection URI was supplied — keeps
         # the action working with zero config for anyone who hasn't set up
         # the dashboard's audit log store.
@@ -94,7 +103,7 @@ runs:
 
         python ${{ github.action_path }}/../main.py scan \
           --plan "${{ inputs.plan_file }}" \
-          --policies "${{ inputs.policies_dir }}" \
+          --policies "$POLICIES_DIR" \
           --explain \
           --remediate \
           --output-comment pr_comment.md \
