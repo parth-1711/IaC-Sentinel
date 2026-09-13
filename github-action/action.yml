@@ -49,24 +49,15 @@ outputs:
 runs:
   using: "composite"
   steps:
-    - name: Resolve Requirements Path
-      id: paths
-      shell: bash
-      run: |
-        # cache-dependency-path is validated as a glob pattern, which rejects
-        # ".." segments outright — resolve to a clean absolute path first.
-        echo "requirements=$(realpath "${{ github.action_path }}/../requirements.txt")" >> "$GITHUB_OUTPUT"
-
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: "3.12"
-        cache: "pip"
-        # Consumer repos (using this action via `uses: owner/repo/github-action@ref`)
-        # don't have their own requirements.txt — point the cache at this
-        # action's own bundled copy instead of glob-searching the calling
-        # repo's workspace, which is what the default behavior does.
-        cache-dependency-path: ${{ steps.paths.outputs.requirements }}
+        # No pip cache: it's keyed via hashFiles(), which can only see files
+        # inside the calling repo's own workspace — not this action's own
+        # requirements.txt when used cross-repo via
+        # `uses: owner/repo/github-action@ref`. Not worth working around for
+        # the few seconds it'd save.
 
     - name: Set up OPA
       uses: open-policy-agent/setup-opa@v2
