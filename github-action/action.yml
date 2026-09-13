@@ -54,6 +54,11 @@ runs:
       with:
         python-version: "3.12"
         cache: "pip"
+        # Consumer repos (using this action via `uses: owner/repo/github-action@ref`)
+        # don't have their own requirements.txt — point the cache at this
+        # action's own bundled copy instead of glob-searching the calling
+        # repo's workspace, which is what the default behavior does.
+        cache-dependency-path: ${{ github.action_path }}/../requirements.txt
 
     - name: Set up OPA
       uses: open-policy-agent/setup-opa@v2
