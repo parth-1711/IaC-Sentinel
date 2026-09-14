@@ -15,6 +15,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedScanId, setSelectedScanId] = useState(null);
+  const [selectedRepo, setSelectedRepo] = useState('all');
   const [activeViolation, setActiveViolation] = useState(null);
 
   const loadData = async () => {
@@ -66,10 +67,19 @@ export default function DashboardPage() {
   }
 
   const scans = data?.scans || [];
-  const currentScan = scans.find(s => s.id === selectedScanId) || scans[0];
+  const repoOptions = [...new Set(scans.map(s => s.repo))].sort();
+  const filteredScans = selectedRepo === 'all' ? scans : scans.filter(s => s.repo === selectedRepo);
+  const currentScan = filteredScans.find(s => s.id === selectedScanId) || filteredScans[0];
 
   // All violations from current scan
   const activeViolations = currentScan?.violations || [];
+
+  const handleSelectRepo = (repo) => {
+    setSelectedRepo(repo);
+    // Force re-selection to the newest scan within the newly filtered set,
+    // rather than keeping a scan id that may belong to a different repo.
+    setSelectedScanId(null);
+  };
 
   return (
     <div>
@@ -97,26 +107,67 @@ export default function DashboardPage() {
           </div>
         ) : (
           <>
+            {/* Repository Filter Bar */}
+            {repoOptions.length > 1 && (
+              <div className="glass-panel" style={{ padding: '1rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+                <span style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--text-secondary)' }}>
+                  Repository:
+                </span>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={() => handleSelectRepo('all')}
+                    className={`filter-btn ${selectedRepo === 'all' ? 'active' : ''}`}
+                    style={{
+                      background: selectedRepo === 'all' ? 'var(--accent-cyan)' : 'var(--bg-surface-elevated)',
+                      color: selectedRepo === 'all' ? '#090d16' : 'var(--text-secondary)',
+                      border: '1px solid var(--border-subtle)',
+                      padding: '0.45rem 0.85rem'
+                    }}
+                  >
+                    All Repositories
+                  </button>
+                  {repoOptions.map(repo => {
+                    const isSelected = repo === selectedRepo;
+                    return (
+                      <button
+                        key={repo}
+                        onClick={() => handleSelectRepo(repo)}
+                        className={`filter-btn ${isSelected ? 'active' : ''}`}
+                        style={{
+                          background: isSelected ? 'var(--accent-cyan)' : 'var(--bg-surface-elevated)',
+                          color: isSelected ? '#090d16' : 'var(--text-secondary)',
+                          border: '1px solid var(--border-subtle)',
+                          padding: '0.45rem 0.85rem'
+                        }}
+                      >
+                        {repo}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Top Metrics Row */}
             <MetricsGrid
               latestScan={currentScan}
-              totalScans={scans.length}
+              totalScans={filteredScans.length}
             />
 
             {/* Middle Telemetry & Breakdown Row */}
             <div className="analysis-row">
-              <TrendChart scans={scans} />
+              <TrendChart scans={filteredScans} />
               <CategoryBreakdown violations={activeViolations} />
             </div>
 
             {/* Scan Selector Bar if multiple scans exist */}
-            {scans.length > 1 && (
+            {filteredScans.length > 1 && (
               <div className="glass-panel" style={{ padding: '1rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
                 <span style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--text-secondary)' }}>
                   Selected Execution Run:
                 </span>
                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  {scans.map(s => {
+                  {filteredScans.map(s => {
                     const isSelected = s.id === currentScan?.id;
                     const badgeType = s.status === 'PASSED' ? 'badge-passed' : 'badge-failed';
                     return (

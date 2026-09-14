@@ -1,5 +1,16 @@
 import React from 'react';
 
+// Mirrors the weights in calculate_compliance_score() (scanner/parse_violations.py),
+// but without the max(0, ...) floor. The official compliance_score intentionally
+// saturates at 0 once violations are severe enough — correct for the headline
+// metric, but it means this chart would go flat at 0 even while the underlying
+// violation mix is genuinely improving. Plotting the uncapped version keeps
+// relative progress visible below that floor, using fields already stored on
+// every scan (no backend change or re-scan needed to see it retroactively).
+function rawScore(scan) {
+  return 100 - (scan.high_count * 25 + scan.medium_count * 10 + scan.low_count * 5);
+}
+
 export default function TrendChart({ scans = [] }) {
   // Sort chronologically for trend
   const chronological = [...scans].reverse();
@@ -17,15 +28,26 @@ export default function TrendChart({ scans = [] }) {
   const paddingX = 40;
   const paddingY = 25;
 
+  const rawScores = chronological.map(rawScore);
+  const minRaw = Math.min(0, ...rawScores);
+  const maxRaw = 100;
+  const range = maxRaw - minRaw;
+
   const points = chronological.map((scan, i) => {
     const x = paddingX + (i / Math.max(1, chronological.length - 1)) * (width - paddingX * 2);
-    const y = height - paddingY - (scan.compliance_score / 100) * (height - paddingY * 2);
-    return { x, y, score: scan.compliance_score, scan };
+    const raw = rawScore(scan);
+    const y = height - paddingY - ((raw - minRaw) / range) * (height - paddingY * 2);
+    return { x, y, raw, scan };
   });
 
   const pathD = points.reduce((acc, pt, i) => {
     return i === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`;
   }, '');
+
+  const gridTicks = 4;
+  const gridValues = Array.from({ length: gridTicks + 1 }, (_, i) =>
+    Math.round(minRaw + (range * i) / gridTicks)
+  );
 
   return (
     <div className="glass-panel" style={{ padding: '1.5rem' }}>
@@ -34,10 +56,16 @@ export default function TrendChart({ scans = [] }) {
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" strokeWidth="2">
             <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
           </svg>
-          Compliance Health Trend Over Time
+          Compliance Risk Trend Over Time
         </h2>
         <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Past {scans.length} PR Executions</span>
       </div>
+
+      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '-0.75rem', marginBottom: '1rem' }}>
+        Uncapped composite risk score — the headline Compliance Health score
+        (shown above) floors at 0 once violations are this severe; this line
+        shows relative movement below that floor.
+      </p>
 
       <div style={{ position: 'relative', width: '100%', overflowX: 'auto' }}>
         <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', height: 'auto', minHeight: '180px' }}>
@@ -49,13 +77,13 @@ export default function TrendChart({ scans = [] }) {
           </defs>
 
           {/* Grid lines */}
-          {[0, 25, 50, 75, 100].map((val) => {
-            const y = height - paddingY - (val / 100) * (height - paddingY * 2);
+          {gridValues.map((val) => {
+            const y = height - paddingY - ((val - minRaw) / range) * (height - paddingY * 2);
             return (
               <g key={val}>
                 <line x1={paddingX} y1={y} x2={width - paddingX} y2={y} stroke="rgba(255,255,255,0.06)" strokeDasharray="3 3" />
                 <text x={paddingX - 8} y={y + 3} fill="var(--text-muted)" fontSize="9" textAnchor="end" fontFamily="var(--font-mono)">
-                  {val}%
+                  {val}
                 </text>
               </g>
             );
@@ -85,7 +113,7 @@ export default function TrendChart({ scans = [] }) {
                 textAnchor="middle"
                 fontFamily="var(--font-mono)"
               >
-                {pt.score}%
+                {pt.raw}
               </text>
               <text
                 x={pt.x}
