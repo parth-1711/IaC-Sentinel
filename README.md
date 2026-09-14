@@ -46,10 +46,11 @@ LLM Compliance Agent: Gemini (`agent/explain.py`, `agent/remediate.py`)
          │
     ┌────┴───────────────────────────┐
     ▼                                ▼
-GitHub Action PR Comment      MongoDB / JSON Audit Log
+GitHub Action PR Comment      MongoDB Audit Log
 (+ Optional Remediation PR)          │
                                      ▼
-                              Compliance Dashboard (`dashboard/`)
+                    Compliance Dashboard (Next.js, GitHub OAuth-gated)
+                    reads MongoDB live via an authenticated API route
 ```
 
 ---
@@ -120,7 +121,9 @@ python main.py scan --plan tests/fixtures/good_plan.json
 
 ## 🤖 GitHub Action CI Integration
 
-Add `.github/workflows/iac-sentinel.yml` to your repository:
+Add `.github/workflows/iac-sentinel.yml` to your repository, referencing the
+action directly from this (public) repo — no need to vendor any of its code
+into yours:
 
 ```yaml
 name: "IaC Sentinel Compliance Check"
@@ -133,6 +136,7 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  issues: write
 
 jobs:
   compliance-scan:
@@ -140,19 +144,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
       - run: |
           terraform init -backend=false
           terraform plan -out=tfplan.binary
           terraform show -json tfplan.binary > tfplan.json
 
-      - uses: ./github-action
+      - uses: parth-1711/IaC-Sentinel/github-action@main
         with:
           plan_file: "tfplan.json"
-          policies_dir: "policies"
+          # policies_dir omitted: falls back to this action's own bundled
+          # policies/ folder. Pass your own path here to use custom policies
+          # instead of (or alongside) the shared defaults.
           gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
           fail_on_high: "true"
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          comment_on_pr: "true"
+          # Optional: persist scan history for the dashboard (see below).
+          # Leave unset to skip DB logging entirely.
+          mongo_uri: ${{ secrets.MONGO_URI }}
 ```
+
+`@main` tracks this repo's default branch since it has no tagged releases
+yet; pin to a tag instead (once one exists) for anything you don't want to
+silently pick up breaking changes.
 
 ### Fail-Open vs Fail-Closed Strategy
 - **Fail-Closed (Default)**: Pull requests containing high-severity violations exit with code `1`, blocking merges until remediated.
@@ -162,12 +178,9 @@ jobs:
 
 ## 📊 Compliance Dashboard
 
-IaC Sentinel includes a Next.js telemetry portal in `dashboard/` that reads scan history live from MongoDB, gated behind **GitHub OAuth sign-in**. Each signed-in user only sees scans for repositories they actually have access to on GitHub — the API route calls GitHub on their behalf to check.
+IaC Sentinel includes a Next.js telemetry portal that reads scan history live from MongoDB, gated behind **GitHub OAuth sign-in**. Each signed-in user only sees scans for repositories they actually have access to on GitHub — the API route calls GitHub on their behalf to check.
 
-**Setup:**
-1. Create a GitHub OAuth App at [github.com/settings/developers](https://github.com/settings/developers) with callback URL `http://localhost:3000/api/auth/callback/github`.
-2. `cd dashboard && cp .env.local.example .env.local` and fill in `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `NEXTAUTH_SECRET` (`openssl rand -base64 32`), and your `MONGO_URI`.
-3. `npm install && npm run dev`, then visit `http://localhost:3000` and sign in with GitHub.
+**Live dashboard:** [https://ia-c-sentinel.vercel.app/](https://ia-c-sentinel.vercel.app/) — sign in with GitHub to view compliance history for repos you have access to.
 
 > **Scope note:** the OAuth app requests the `repo` scope so it can list private repos the signed-in user can access — GitHub's classic OAuth scopes don't offer a narrower "read-only repo list" permission. A GitHub App with fine-grained read-only permissions would be a tighter alternative worth adopting later.
 
@@ -202,9 +215,16 @@ iac-sentinel/
 ├── github-action/                    # Reusable GitHub Action
 │   └── action.yml                    # CI composite entrypoint
 ├── dashboard/                        # Next.js Compliance Web Portal
-│   ├── src/app/                      # Pages, API routes (auth, scans)
-│   ├── src/components/               # Dashboard UI components
-│   └── src/lib/                      # NextAuth config, MongoDB & GitHub API clients
+│   ├── src/app/
+│   │   ├── page.jsx                  # Main dashboard (client component)
+│   │   ├── layout.jsx                # Root layout, wraps NextAuth SessionProvider
+│   │   ├── login/page.jsx            # GitHub sign-in screen
+│   │   └── api/
+│   │       ├── auth/[...nextauth]/   # NextAuth GitHub OAuth handler
+│   │       └── scans/route.js        # Session-gated, GitHub-access-filtered scan API
+│   ├── src/components/               # Header, MetricsGrid, TrendChart, ViolationTable, etc.
+│   ├── src/lib/                      # auth.js, mongodb.js, github.js — NextAuth config & clients
+│   └── src/middleware.js             # Redirects unauthenticated requests to /login
 ├── tests/                            # Test suites & fixtures
 │   ├── policies/                     # 27 Rego unit test cases (*_test.rego)
 │   ├── fixtures/                     # Compliant and violating plan JSONs
