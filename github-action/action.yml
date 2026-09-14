@@ -122,7 +122,11 @@ runs:
         python "${{ github.action_path }}/../main.py" scan "${ARGS[@]}"
 
     - name: Post or Update PR Comment
-      if: ${{ inputs.comment_on_pr == 'true' && github.event_name == 'pull_request' }}
+      # !cancelled() (not always()) so this still runs when the scan step
+      # exits non-zero — which happens exactly when fail_on_high trips on
+      # high-severity violations, i.e. the case the comment matters most for.
+      # It only skips on an actual workflow cancellation, not a scan failure.
+      if: ${{ !cancelled() && inputs.comment_on_pr == 'true' && github.event_name == 'pull_request' }}
       uses: actions/github-script@v7
       with:
         github-token: ${{ inputs.github_token }}

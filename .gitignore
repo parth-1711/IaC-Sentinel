@@ -12,6 +12,8 @@ htmlcov/
 iac_sentinel.db
 violations_log.json
 data/violations_log.json
+pr_comment.md
+scan_result.json
 .env
 dashboard/.env.local
 
